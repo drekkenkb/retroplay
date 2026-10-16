@@ -3,20 +3,20 @@
 // ROMs live in IndexedDB so they survive reloads (on iPhone especially, picking a file every time is a chore).
 // EmulatorJS keeps its own databases for battery saves and save states, keyed by the game name we hand it.
 
-// Keys are EmulatorJS system ids; `badge` is the short label in the game list.
+// Keys are EmulatorJS system ids; `badge` is the short label in the game list, `aspect` the shape of the picture.
 const SYSTEMS = {
-  nes: { name: "NES", badge: "NES", color: "#e5484d", exts: ["nes", "unf", "unif", "fds"] },
-  snes: { name: "Super Nintendo", badge: "SNES", color: "#8e4ec6", exts: ["sfc", "smc", "swc", "fig"] },
-  gb: { name: "Game Boy / Color", badge: "GB", color: "#46a758", exts: ["gb", "gbc", "dmg", "sgb"] },
-  gba: { name: "Game Boy Advance", badge: "GBA", color: "#6e56cf", exts: ["gba", "agb"] },
-  segaMS: { name: "Master System", badge: "SMS", color: "#3b82f6", exts: ["sms", "sg"] },
-  segaMD: { name: "Genesis / Mega Drive", badge: "GEN", color: "#db2777", exts: ["md", "gen", "smd", "68k", "sgd"] },
-  segaGG: { name: "Game Gear", badge: "GG", color: "#0e7490", exts: ["gg"] },
-  pce: { name: "TurboGrafx-16", badge: "TG16", color: "#f76b15", exts: ["pce", "sgx"] },
-  atari2600: { name: "Atari 2600", badge: "2600", color: "#a16207", exts: ["a26"] },
-  atari7800: { name: "Atari 7800", badge: "7800", color: "#b45309", exts: ["a78"] },
-  ngp: { name: "Neo Geo Pocket", badge: "NGP", color: "#be123c", exts: ["ngp", "ngc", "npc"] },
-  ws: { name: "WonderSwan", badge: "WS", color: "#4b5563", exts: ["ws", "wsc", "pc2"] },
+  nes: { name: "NES", badge: "NES", color: "#e5484d", aspect: 4 / 3, exts: ["nes", "unf", "unif", "fds"] },
+  snes: { name: "Super Nintendo", badge: "SNES", color: "#8e4ec6", aspect: 4 / 3, exts: ["sfc", "smc", "swc", "fig"] },
+  gb: { name: "Game Boy / Color", badge: "GB", color: "#46a758", aspect: 10 / 9, exts: ["gb", "gbc", "dmg", "sgb"] },
+  gba: { name: "Game Boy Advance", badge: "GBA", color: "#6e56cf", aspect: 3 / 2, exts: ["gba", "agb"] },
+  segaMS: { name: "Master System", badge: "SMS", color: "#3b82f6", aspect: 4 / 3, exts: ["sms", "sg"] },
+  segaMD: { name: "Genesis / Mega Drive", badge: "GEN", color: "#db2777", aspect: 4 / 3, exts: ["md", "gen", "smd", "68k", "sgd"] },
+  segaGG: { name: "Game Gear", badge: "GG", color: "#0e7490", aspect: 10 / 9, exts: ["gg"] },
+  pce: { name: "TurboGrafx-16", badge: "TG16", color: "#f76b15", aspect: 4 / 3, exts: ["pce", "sgx"] },
+  atari2600: { name: "Atari 2600", badge: "2600", color: "#a16207", aspect: 4 / 3, exts: ["a26"] },
+  atari7800: { name: "Atari 7800", badge: "7800", color: "#b45309", aspect: 4 / 3, exts: ["a78"] },
+  ngp: { name: "Neo Geo Pocket", badge: "NGP", color: "#be123c", aspect: 20 / 19, exts: ["ngp", "ngc", "npc"] },
+  ws: { name: "WonderSwan", badge: "WS", color: "#4b5563", aspect: 14 / 9, exts: ["ws", "wsc", "pc2"] },
 };
 
 const db = (() => {
@@ -178,11 +178,79 @@ async function play(id) {
     EJS_backgroundColor: "#000",
     EJS_threads: false,
     EJS_startOnLoaded: false,
+    EJS_onGameStart: () => {
+      layoutGame();
+      // The touch controls come and go (menu open, rotation), so follow their visibility too.
+      const pad = document.querySelector(".ejs_virtualGamepad_parent");
+      if (pad) new MutationObserver(layoutGame).observe(pad, { attributes: true, attributeFilter: ["style"] });
+    },
   });
+  gameAspect = rom.system in SYSTEMS ? SYSTEMS[rom.system].aspect : 4 / 3;
   const loader = document.createElement("script");
   loader.src = "emulatorjs/data/loader.js";
   document.body.append(loader);
 }
+
+// Nothing may cover the picture. The canvas gets its own box, sized to the largest picture that fits beside or
+// between whatever is on screen: our back button, the emulator's menu button and its touch controls. Two shapes are
+// tried: a full-height column between the controls on the left and right (landscape) and a full-width row between
+// the controls at the top and bottom (portrait). The bigger picture wins.
+let gameAspect = 4 / 3;
+const GAP = 6;
+
+function layoutGame() {
+  const player = document.getElementById("player");
+  const canvas = document.querySelector("#game .ejs_canvas");
+  if (player.hidden || !canvas) return;
+  const pad = document.querySelector(".ejs_virtualGamepad_parent");
+  // While the emulator hides its touch controls (menu open), keep the layout we have rather than growing into them.
+  if (window.EJS_emulator?.touch && !document.body.classList.contains("has-controller") && pad?.style.display === "none") return;
+
+  const inset = readSafeArea();
+  const W = player.clientWidth, H = player.clientHeight;
+  const obstacles = [...document.querySelectorAll(
+    "#back, .ejs_virtualGamepad_open, .ejs_virtualGamepad_button, .ejs_dpad_main, .ejs_virtualGamepad_parent .nipple"
+  )].filter(el => el.getClientRects().length && getComputedStyle(el).visibility !== "hidden")
+    .map(el => el.getBoundingClientRect());
+
+  const fit = (x0, y0, x1, y1) => {
+    const w = Math.max(0, x1 - x0), h = Math.max(0, y1 - y0);
+    const pw = Math.min(w, h * gameAspect), ph = pw / gameAspect;
+    return { x: x0 + (w - pw) / 2, y: y0 + (h - ph) / 2, w: pw, h: ph };
+  };
+  const top = inset.top, bottom = H - inset.bottom, left = inset.left, right = W - inset.right;
+
+  let colL = left, colR = right, colOk = true;
+  for (const r of obstacles) {
+    const cx = (r.left + r.right) / 2;
+    if (r.right > W / 2 && r.left < W / 2) colOk = false;
+    else if (cx < W / 2) colL = Math.max(colL, r.right + GAP);
+    else colR = Math.min(colR, r.left - GAP);
+  }
+  let rowT = top, rowB = bottom, rowOk = true;
+  for (const r of obstacles) {
+    const cy = (r.top + r.bottom) / 2;
+    if (r.bottom > H / 2 && r.top < H / 2) rowOk = false;
+    else if (cy < H / 2) rowT = Math.max(rowT, r.bottom + GAP);
+    else rowB = Math.min(rowB, r.top - GAP);
+  }
+  const col = colOk && fit(colL, top, colR, bottom);
+  const row = rowOk && fit(left, rowT, right, rowB);
+  // In a row, sit the picture right under the top bar rather than floating midway down to the controls.
+  if (row) row.y = rowT;
+  // A screen too small for either shape keeps the full area rather than vanishing.
+  const box = [col, row].filter(Boolean).sort((a, b) => b.w - a.w)[0] ?? fit(left, top, right, bottom);
+
+  Object.assign(canvas.style, { left: box.x + "px", top: box.y + "px", width: box.w + "px", height: box.h + "px" });
+}
+
+function readSafeArea() {
+  const probe = document.getElementById("safe-area");
+  const s = getComputedStyle(probe);
+  return { top: parseFloat(s.paddingTop), right: parseFloat(s.paddingRight), bottom: parseFloat(s.paddingBottom), left: parseFloat(s.paddingLeft) };
+}
+
+addEventListener("resize", () => requestAnimationFrame(layoutGame));
 
 function saveBatteryRam() {
   try {
@@ -195,6 +263,16 @@ function saveBatteryRam() {
 // EmulatorJS saves on beforeunload, which iOS often skips; pagehide and backgrounding are the reliable signals there.
 addEventListener("pagehide", saveBatteryRam);
 document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && saveBatteryRam());
+
+// A physical controller makes the on-screen one redundant. Browsers only report a controller after its first button
+// press, so the touch controls stay until then.
+function updateTouchControls() {
+  const connected = [...(navigator.getGamepads?.() ?? [])].some(Boolean);
+  document.body.classList.toggle("has-controller", connected);
+  layoutGame();
+}
+addEventListener("gamepadconnected", updateTouchControls);
+addEventListener("gamepaddisconnected", updateTouchControls);
 
 document.getElementById("back").onclick = () => {
   saveBatteryRam();

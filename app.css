@@ -105,6 +105,7 @@ header h1 { margin: 0; font-size: 2rem; letter-spacing: -0.02em; }
 #game { width: 100%; height: 100%; }
 #back {
   position: absolute;
+  height: 33px;
   z-index: 10;
   top: calc(env(safe-area-inset-top) + 8px);
   left: calc(env(safe-area-inset-left) + 8px);
@@ -143,3 +144,58 @@ dialog button {
 dialog .cancel { display: block; width: 100%; margin-top: 8px; background: none; color: var(--muted); font-weight: 400; }
 .credits { margin-top: 12px; }
 .credits a { color: var(--muted); }
+
+/* EmulatorJS's on-screen D-pad and buttons; its menu button is a separate element and stays. */
+.has-controller .ejs_virtualGamepad_parent { display: none !important; }
+
+/* Read by app.js to learn the notch and home-bar insets. */
+#safe-area {
+  position: fixed;
+  visibility: hidden;
+  pointer-events: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* app.js places the canvas in the area nothing else covers. */
+#game .ejs_canvas { position: absolute; }
+
+/* Keep the touch controls clear of the notch and home bar. */
+#game .ejs_virtualGamepad_parent {
+  left: env(safe-area-inset-left);
+  right: env(safe-area-inset-right);
+  width: auto;
+  bottom: calc(50px + env(safe-area-inset-bottom));
+}
+
+/* The emulator's menu button, styled to match our back button and pinned to the opposite corner. */
+#game .ejs_virtualGamepad_open {
+  top: calc(env(safe-area-inset-top) + 8px);
+  right: calc(env(safe-area-inset-right) + 8px);
+  width: 44px;
+  height: 33px;
+  padding: 8px 13px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: rgba(30, 33, 41, .8);
+  opacity: 1;
+}
+
+/* In landscape the middle of the screen belongs to the picture, so Start/Select and friends move into the left
+   column under the D-pad. */
+@media (orientation: landscape) {
+  #game .ejs_virtualGamepad_bottom {
+    left: 10px;
+    bottom: -40px;
+    margin-left: 0;
+    width: 132px;
+    height: auto;
+    display: flex;
+    flex-wrap: wrap-reverse;
+    gap: 6px;
+  }
+  #game .ejs_virtualGamepad_bottom > .ejs_virtualGamepad_button {
+    position: static;
+    width: 63px;
+    font-size: 13px !important;
+  }
+}
