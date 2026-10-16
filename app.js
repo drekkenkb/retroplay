@@ -3,9 +3,20 @@
 // ROMs live in IndexedDB so they survive reloads (on iPhone especially, picking a file every time is a chore).
 // EmulatorJS keeps its own databases for battery saves and save states, keyed by the game name we hand it.
 
+// Keys are EmulatorJS system ids; `badge` is the short label in the game list.
 const SYSTEMS = {
-  nes: { label: "NES", exts: ["nes", "unf", "unif", "fds"] },
-  segaMS: { label: "SMS", exts: ["sms", "sg"] },
+  nes: { name: "NES", badge: "NES", color: "#e5484d", exts: ["nes", "unf", "unif", "fds"] },
+  snes: { name: "Super Nintendo", badge: "SNES", color: "#8e4ec6", exts: ["sfc", "smc", "swc", "fig"] },
+  gb: { name: "Game Boy / Color", badge: "GB", color: "#46a758", exts: ["gb", "gbc", "dmg", "sgb"] },
+  gba: { name: "Game Boy Advance", badge: "GBA", color: "#6e56cf", exts: ["gba", "agb"] },
+  segaMS: { name: "Master System", badge: "SMS", color: "#3b82f6", exts: ["sms", "sg"] },
+  segaMD: { name: "Genesis / Mega Drive", badge: "GEN", color: "#db2777", exts: ["md", "gen", "smd", "68k", "sgd"] },
+  segaGG: { name: "Game Gear", badge: "GG", color: "#0e7490", exts: ["gg"] },
+  pce: { name: "TurboGrafx-16", badge: "TG16", color: "#f76b15", exts: ["pce", "sgx"] },
+  atari2600: { name: "Atari 2600", badge: "2600", color: "#a16207", exts: ["a26"] },
+  atari7800: { name: "Atari 7800", badge: "7800", color: "#b45309", exts: ["a78"] },
+  ngp: { name: "Neo Geo Pocket", badge: "NGP", color: "#be123c", exts: ["ngp", "ngc", "npc"] },
+  ws: { name: "WonderSwan", badge: "WS", color: "#4b5563", exts: ["ws", "wsc", "pc2"] },
 };
 
 const db = (() => {
@@ -61,21 +72,45 @@ function zipEntries(bytes) {
 function detectSystem(name, bytes) {
   const ext = extOf(name);
   if (ext === "zip") {
-    for (const entry of zipEntries(bytes)) {
+    const entries = zipEntries(bytes);
+    for (const entry of entries) {
       const sys = systemForExt(extOf(entry));
       if (sys) return sys;
     }
     return null;
   }
-  const byExt = systemForExt(ext);
-  if (byExt) return byExt;
+  return systemForExt(ext) ?? sniffHeader(bytes);
+}
+
+// For files with a generic extension like .bin or .rom.
+function sniffHeader(bytes) {
+  const u8 = at => bytes[at] ?? -1;
   if (ascii(bytes, 0, 4) === "NES\x1a" || ascii(bytes, 0, 4) === "FDS\x1a") return "nes";
-  if ([0x7ff0, 0x3ff0, 0x1ff0].some(at => ascii(bytes, at, 8) === "TMR SEGA")) return "segaMS";
+  if (u8(0xb2) === 0x96 && u8(4) === 0x24 && u8(5) === 0xff) return "gba";
+  if (u8(0x104) === 0xce && u8(0x105) === 0xed && u8(0x106) === 0x66) return "gb";
+  if (ascii(bytes, 0x100, 4) === "SEGA" || ascii(bytes, 0x101, 4) === "SEGA") return "segaMD";
+  if (ascii(bytes, 1, 9) === "ATARI7800") return "atari7800";
+  for (const at of [0x7ff0, 0x3ff0, 0x1ff0]) {
+    if (ascii(bytes, at, 8) !== "TMR SEGA") continue;
+    // The region nibble tells Master System (3, 4) from Game Gear (5-7).
+    return (u8(at + 15) >> 4) >= 5 ? "segaGG" : "segaMS";
+  }
+  if (ascii(bytes, 0, 28).includes("SNK CORPORATION") || ascii(bytes, 0, 28).includes("COPYRIGHT BY SNK")) return "ngp";
   return null;
 }
 
 function askSystem(name) {
   const dialog = document.getElementById("pick-system");
+  const buttons = document.getElementById("pick-buttons");
+  if (!buttons.children.length) {
+    buttons.append(...Object.entries(SYSTEMS).map(([id, sys]) => {
+      const b = document.createElement("button");
+      b.value = id;
+      b.textContent = sys.name;
+      b.style.background = sys.color;
+      return b;
+    }));
+  }
   document.getElementById("pick-name").textContent = name;
   dialog.returnValue = "";
   dialog.showModal();
@@ -108,8 +143,10 @@ async function renderLibrary() {
     li.innerHTML = `<button class="play" type="button"><span class="badge"></span><span class="name"></span></button>
       <button class="delete" type="button" aria-label="Remove">×</button>`;
     const badge = li.querySelector(".badge");
-    badge.classList.add(rom.system);
-    badge.textContent = SYSTEMS[rom.system].label;
+    const sys = SYSTEMS[rom.system];
+    badge.textContent = sys.badge;
+    badge.style.background = sys.color;
+    badge.title = sys.name;
     li.querySelector(".name").textContent = baseName(rom.name);
     li.querySelector(".play").onclick = () => play(rom.id);
     li.querySelector(".delete").onclick = async () => {

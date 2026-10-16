@@ -18,13 +18,13 @@
   <main id="library">
     <header>
       <h1>RetroPlay</h1>
-      <p class="tagline">NES and Sega Master System, right in your browser.</p>
+      <p class="tagline">Classic consoles, right in your browser.</p>
     </header>
 
     <label class="open-rom" id="drop">
-      <input type="file" id="file" accept=".nes,.unf,.unif,.fds,.sms,.zip" multiple hidden>
+      <input type="file" id="file" accept=".nes,.unf,.unif,.fds,.sfc,.smc,.swc,.fig,.gb,.gbc,.dmg,.sgb,.gba,.agb,.sms,.sg,.md,.gen,.smd,.68k,.sgd,.bin,.rom,.gg,.pce,.sgx,.a26,.a78,.ngp,.ngc,.npc,.ws,.wsc,.pc2,.zip" multiple hidden>
       <span class="open-title">Add a ROM</span>
-      <span class="open-hint">Tap to choose a .nes, .sms or .zip file, or drop it here</span>
+      <span class="open-hint">Tap to choose a ROM or .zip file, or drop it here</span>
     </label>
 
     <section id="games" hidden>
@@ -37,9 +37,9 @@
       and nothing is uploaded anywhere. Game saves are kept in your browser too.
     </p>
     <p class="note credits">
-      Powered by <a href="https://github.com/EmulatorJS/EmulatorJS">EmulatorJS</a> (GPL-3.0) with the
-      <a href="https://github.com/libretro/libretro-fceumm">FCEUmm</a> and
-      <a href="https://github.com/libretro/smsplus-gx">SMS Plus</a> cores. No games are included.
+      Powered by <a href="https://github.com/EmulatorJS/EmulatorJS">EmulatorJS</a> (GPL-3.0) and
+      <a href="https://www.libretro.com/">libretro</a> cores (FCEUmm, Snes9x, Gambatte, mGBA, SMS Plus,
+      Genesis Plus GX, Beetle PCE/NeoPop/Cygne, Stella, ProSystem). No games are included.
     </p>
   </main>
 
@@ -51,10 +51,7 @@
   <dialog id="pick-system">
     <form method="dialog">
       <p>Which system is <strong id="pick-name"></strong> for?</p>
-      <div class="pick-buttons">
-        <button value="nes">NES</button>
-        <button value="segaMS">Master System</button>
-      </div>
+      <div class="pick-buttons" id="pick-buttons"></div>
       <button value="" class="cancel">Cancel</button>
     </form>
   </dialog>

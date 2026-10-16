@@ -6,8 +6,6 @@
   --text: #e9ebf0;
   --muted: #9aa0ad;
   --accent: #e5484d;
-  --nes: #e5484d;
-  --sms: #3b82f6;
   color-scheme: dark;
 }
 
@@ -74,7 +72,7 @@ header h1 { margin: 0; font-size: 2rem; letter-spacing: -0.02em; }
 }
 .badge {
   flex: none;
-  width: 44px;
+  width: 48px;
   padding: 3px 0;
   border-radius: 6px;
   font-size: .72rem;
@@ -82,8 +80,6 @@ header h1 { margin: 0; font-size: 2rem; letter-spacing: -0.02em; }
   text-align: center;
   color: #fff;
 }
-.badge.nes { background: var(--nes); }
-.badge.segaMS { background: var(--sms); }
 .game .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game .delete {
   flex: none;
@@ -132,7 +128,7 @@ dialog {
 }
 dialog::backdrop { background: rgba(0, 0, 0, .6); }
 dialog p { margin: 0 0 16px; overflow-wrap: anywhere; }
-.pick-buttons { display: flex; gap: 8px; }
+.pick-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 dialog button {
   flex: 1;
   border: 0;
@@ -140,11 +136,10 @@ dialog button {
   padding: 12px;
   font: inherit;
   font-weight: 600;
+  font-size: .9rem;
   color: #fff;
   cursor: pointer;
 }
-dialog button[value="nes"] { background: var(--nes); }
-dialog button[value="segaMS"] { background: var(--sms); }
 dialog .cancel { display: block; width: 100%; margin-top: 8px; background: none; color: var(--muted); font-weight: 400; }
 .credits { margin-top: 12px; }
 .credits a { color: var(--muted); }
