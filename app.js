@@ -19,16 +19,21 @@ const SYSTEMS = {
   ws: { name: "WonderSwan", badge: "WS", color: "#4b5563", aspect: 14 / 9, exts: ["ws", "wsc", "pc2"] },
 };
 
+// "roms" holds the games; "resume" holds the snapshot taken when leaving a game, keyed by the rom's id.
 const db = (() => {
   let opened;
   const open = () => opened ??= new Promise((resolve, reject) => {
-    const req = indexedDB.open("retroplay", 1);
-    req.onupgradeneeded = () => req.result.createObjectStore("roms", { keyPath: "id" });
+    const req = indexedDB.open("retroplay", 2);
+    req.onupgradeneeded = () => {
+      const names = req.result.objectStoreNames;
+      if (!names.contains("roms")) req.result.createObjectStore("roms", { keyPath: "id" });
+      if (!names.contains("resume")) req.result.createObjectStore("resume");
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
-  const run = async (mode, fn) => {
-    const store = (await open()).transaction("roms", mode).objectStore("roms");
+  const run = async (storeName, mode, fn) => {
+    const store = (await open()).transaction(storeName, mode).objectStore(storeName);
     return new Promise((resolve, reject) => {
       const req = fn(store);
       req.onsuccess = () => resolve(req.result);
@@ -36,10 +41,16 @@ const db = (() => {
     });
   };
   return {
-    all: () => run("readonly", s => s.getAll()),
-    get: id => run("readonly", s => s.get(id)),
-    put: rom => run("readwrite", s => s.put(rom)),
-    delete: id => run("readwrite", s => s.delete(id)),
+    all: () => run("roms", "readonly", s => s.getAll()),
+    get: id => run("roms", "readonly", s => s.get(id)),
+    put: rom => run("roms", "readwrite", s => s.put(rom)),
+    delete: id => run("roms", "readwrite", s => s.delete(id)),
+    resume: {
+      ids: () => run("resume", "readonly", s => s.getAllKeys()),
+      get: id => run("resume", "readonly", s => s.get(id)),
+      put: (id, state) => run("resume", "readwrite", s => s.put(state, id)),
+      delete: id => run("resume", "readwrite", s => s.delete(id)),
+    },
   };
 })();
 
@@ -136,11 +147,13 @@ async function addFiles(files) {
 
 async function renderLibrary() {
   const roms = (await db.all()).sort((a, b) => (b.lastPlayed || b.added) - (a.lastPlayed || a.added));
+  const resumable = new Set(await db.resume.ids());
   const list = document.getElementById("game-list");
   list.replaceChildren(...roms.map(rom => {
     const li = document.createElement("li");
     li.className = "game";
-    li.innerHTML = `<button class="play" type="button"><span class="badge"></span><span class="name"></span></button>
+    li.innerHTML = `<button class="play" type="button"><span class="badge"></span>
+        <span class="title"><span class="name"></span><span class="resume-hint" hidden>Resumes where you left off</span></span></button>
       <button class="delete" type="button" aria-label="Remove">×</button>`;
     const badge = li.querySelector(".badge");
     const sys = SYSTEMS[rom.system];
@@ -148,10 +161,12 @@ async function renderLibrary() {
     badge.style.background = sys.color;
     badge.title = sys.name;
     li.querySelector(".name").textContent = baseName(rom.name);
+    li.querySelector(".resume-hint").hidden = !resumable.has(rom.id);
     li.querySelector(".play").onclick = () => play(rom.id);
     li.querySelector(".delete").onclick = async () => {
       if (!confirm(`Remove ${baseName(rom.name)} from this device? Its saves are kept.`)) return;
       await db.delete(rom.id);
+      await db.resume.delete(rom.id);
       renderLibrary();
     };
     return li;
@@ -159,9 +174,13 @@ async function renderLibrary() {
   document.getElementById("games").hidden = roms.length === 0;
 }
 
+let playingId = null;
+
 async function play(id) {
   const rom = await db.get(id);
   if (!rom) return;
+  playingId = id;
+  const resumeState = await db.resume.get(id);
   rom.lastPlayed = Date.now();
   db.put(rom);
 
@@ -178,6 +197,8 @@ async function play(id) {
     EJS_backgroundColor: "#000",
     EJS_threads: false,
     EJS_startOnLoaded: false,
+    // EmulatorJS loads this snapshot as soon as the game starts.
+    ...(resumeState && { EJS_loadStateURL: new Uint8Array(resumeState) }),
     EJS_onGameStart: () => {
       layoutGame();
       // The touch controls come and go (menu open, rotation), so follow their visibility too.
@@ -262,7 +283,12 @@ function saveBatteryRam() {
 
 // EmulatorJS saves on beforeunload, which iOS often skips; pagehide and backgrounding are the reliable signals there.
 addEventListener("pagehide", saveBatteryRam);
-document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && saveBatteryRam());
+// Also covers closing the app or switching away without pressing back, as long as the browser gives us the moment.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "hidden") return;
+  saveBatteryRam();
+  saveResumeState();
+});
 
 // A physical controller makes the on-screen one redundant. Browsers only report a controller after its first button
 // press, so the touch controls stay until then.
@@ -274,8 +300,20 @@ function updateTouchControls() {
 addEventListener("gamepadconnected", updateTouchControls);
 addEventListener("gamepaddisconnected", updateTouchControls);
 
-document.getElementById("back").onclick = () => {
+// Snapshot the whole machine so the next launch picks up exactly here.
+async function saveResumeState() {
+  const emu = window.EJS_emulator;
+  if (!playingId || !emu?.started) return;
+  try {
+    await db.resume.put(playingId, emu.gameManager.getState().slice().buffer);
+  } catch (e) {
+    console.warn("Couldn't save the resume point", e);
+  }
+}
+
+document.getElementById("back").onclick = async () => {
   saveBatteryRam();
+  await saveResumeState();
   // EmulatorJS can't be torn down and restarted in place, so going back is a fresh page load.
   location.reload();
 };

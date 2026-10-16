@@ -80,7 +80,9 @@ header h1 { margin: 0; font-size: 2rem; letter-spacing: -0.02em; }
   text-align: center;
   color: #fff;
 }
+.game .title { min-width: 0; display: flex; flex-direction: column; }
 .game .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game .resume-hint { color: var(--muted); font-size: .8rem; }
 .game .delete {
   flex: none;
   border: 0;
