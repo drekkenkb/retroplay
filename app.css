@@ -199,3 +199,6 @@ dialog .cancel { display: block; width: 100%; margin-top: 8px; background: none;
     font-size: 13px !important;
   }
 }
+
+/* The emulator's touch Fast/Slow speed buttons; not wanted. */
+#game .b_speed_fast, #game .b_speed_slow, #game .b_speed_rewind { display: none !important; }
