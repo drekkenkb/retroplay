@@ -197,9 +197,11 @@ async function play(id) {
     EJS_backgroundColor: "#000",
     EJS_threads: false,
     EJS_startOnLoaded: false,
-    // EmulatorJS loads this snapshot as soon as the game starts. Resuming skips the Start button: tapping the game
-    // in the list already counts as the tap browsers want before playing sound.
-    ...(resumeState && { EJS_loadStateURL: new Uint8Array(resumeState), EJS_ready: pressStart }),
+    // Skip the Start button: tapping the game (or picking its file) already counts as the tap browsers want before
+    // playing sound.
+    EJS_ready: pressStart,
+    // EmulatorJS loads this snapshot as soon as the game starts.
+    ...(resumeState && { EJS_loadStateURL: new Uint8Array(resumeState) }),
     EJS_onGameStart: () => {
       layoutGame();
       startAutosave();
