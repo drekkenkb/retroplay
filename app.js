@@ -197,8 +197,9 @@ async function play(id) {
     EJS_backgroundColor: "#000",
     EJS_threads: false,
     EJS_startOnLoaded: false,
-    // EmulatorJS loads this snapshot as soon as the game starts.
-    ...(resumeState && { EJS_loadStateURL: new Uint8Array(resumeState) }),
+    // EmulatorJS loads this snapshot as soon as the game starts. Resuming skips the Start button: tapping the game
+    // in the list already counts as the tap browsers want before playing sound.
+    ...(resumeState && { EJS_loadStateURL: new Uint8Array(resumeState), EJS_ready: pressStart }),
     EJS_onGameStart: () => {
       layoutGame();
       // The touch controls come and go (menu open, rotation), so follow their visibility too.
@@ -210,6 +211,12 @@ async function play(id) {
   const loader = document.createElement("script");
   loader.src = "emulatorjs/data/loader.js";
   document.body.append(loader);
+}
+
+function pressStart() {
+  // EmulatorJS turns on its touch controls only when a finger presses Start, so tell it about the touchscreen first.
+  if (matchMedia("(pointer: coarse)").matches) window.EJS_emulator.touch = true;
+  document.querySelector("#game .ejs_start_button")?.click();
 }
 
 // Nothing may cover the picture. The canvas gets its own box, sized to the largest picture that fits beside or

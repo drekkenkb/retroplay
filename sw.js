@@ -1,6 +1,6 @@
 // Cache-first so the app (and any core already used once) works offline. build.sh stamps the cache name, so each
 // deploy starts a fresh cache and the old one is dropped.
-const CACHE = "retroplay-4bcc84071cfa";
+const CACHE = "retroplay-bbaac41152bc";
 const SHELL = ["./", "index.html", "app.js", "app.css", "manifest.webmanifest", "icon.svg", "icon-180.png"];
 
 self.addEventListener("install", e => {
