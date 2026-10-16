@@ -202,6 +202,7 @@ async function play(id) {
     ...(resumeState && { EJS_loadStateURL: new Uint8Array(resumeState), EJS_ready: pressStart }),
     EJS_onGameStart: () => {
       layoutGame();
+      startAutosave();
       // The touch controls come and go (menu open, rotation), so follow their visibility too.
       const pad = document.querySelector(".ejs_virtualGamepad_parent");
       if (pad) new MutationObserver(layoutGame).observe(pad, { attributes: true, attributeFilter: ["style"] });
@@ -316,6 +317,18 @@ async function saveResumeState() {
   } catch (e) {
     console.warn("Couldn't save the resume point", e);
   }
+}
+
+// A safety net for when the page never gets a chance to save on the way out: a crash, the tab being killed in the
+// background, or the browser closing. Only runs while the game is visible and not paused.
+const AUTOSAVE_MS = 30_000;
+let autosaveTimer = null;
+function startAutosave() {
+  autosaveTimer ??= setInterval(() => {
+    if (document.visibilityState !== "visible" || window.EJS_emulator?.paused) return;
+    saveBatteryRam();
+    saveResumeState();
+  }, AUTOSAVE_MS);
 }
 
 document.getElementById("back").onclick = async () => {
