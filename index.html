@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#14161c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="RetroPlay">
+  <title>RetroPlay</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main id="library">
+    <header>
+      <h1>RetroPlay</h1>
+      <p class="tagline">NES and Sega Master System, right in your browser.</p>
+    </header>
+
+    <label class="open-rom" id="drop">
+      <input type="file" id="file" accept=".nes,.unf,.unif,.fds,.sms,.zip" multiple hidden>
+      <span class="open-title">Add a ROM</span>
+      <span class="open-hint">Tap to choose a .nes, .sms or .zip file, or drop it here</span>
+    </label>
+
+    <section id="games" hidden>
+      <h2>Your games</h2>
+      <ul id="game-list"></ul>
+    </section>
+
+    <p class="note">
+      ROMs stay on this device. They're stored in your browser so you don't have to pick them again,
+      and nothing is uploaded anywhere. Game saves are kept in your browser too.
+    </p>
+    <p class="note credits">
+      Powered by <a href="https://github.com/EmulatorJS/EmulatorJS">EmulatorJS</a> (GPL-3.0) with the
+      <a href="https://github.com/libretro/libretro-fceumm">FCEUmm</a> and
+      <a href="https://github.com/libretro/smsplus-gx">SMS Plus</a> cores. No games are included.
+    </p>
+  </main>
+
+  <div id="player" hidden>
+    <button id="back" type="button" aria-label="Back to games">‹ Games</button>
+    <div id="game"></div>
+  </div>
+
+  <dialog id="pick-system">
+    <form method="dialog">
+      <p>Which system is <strong id="pick-name"></strong> for?</p>
+      <div class="pick-buttons">
+        <button value="nes">NES</button>
+        <button value="segaMS">Master System</button>
+      </div>
+      <button value="" class="cancel">Cancel</button>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
